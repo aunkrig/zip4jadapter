@@ -1,0 +1,5 @@
+
+# This resource is part of "de.unkrig.zip4j:zip4j-adapter".
+
+# The class names of the archive formats implemented by this module:
+de.unkrig.zip4jadapter.archivers.zip.ZipArchiveFormat

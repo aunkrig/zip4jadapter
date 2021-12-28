@@ -1,0 +1,27 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>de.unkrig.zip4j</groupId>
+  <artifactId>zip4j-adapter</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <name>zip4j adapter to de.unkrig.commons.compress</name>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.source>1.8</maven.compiler.source>
+    <maven.compiler.target>1.8</maven.compiler.target>
+  </properties>
+
+  <description>Adapter from the net.lingala.zip4j library to de.unkrig.commons' "compress.archivers" package</description>
+  <dependencies>
+  	<dependency>
+  		<groupId>de.unkrig.commons</groupId>
+  		<artifactId>commons-file</artifactId>
+  		<version>1.2.16-SNAPSHOT</version>
+  	</dependency>
+  	<dependency>
+  		<groupId>net.lingala.zip4j</groupId>
+  		<artifactId>zip4j</artifactId>
+  		<version>2.9.1</version>
+  	</dependency>
+  </dependencies>
+</project>
