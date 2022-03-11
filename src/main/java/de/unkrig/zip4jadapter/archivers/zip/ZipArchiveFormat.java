@@ -49,6 +49,7 @@ import de.unkrig.commons.file.org.apache.commons.compress.archivers.ArchiveForma
 import de.unkrig.commons.file.org.apache.commons.compress.archivers.ArchiveFormatFactory;
 import de.unkrig.commons.lang.AssertionUtil;
 import de.unkrig.commons.lang.protocol.ConsumerWhichThrows;
+import de.unkrig.commons.nullanalysis.NotNullByDefault;
 import de.unkrig.commons.nullanalysis.Nullable;
 import net.lingala.zip4j.ZipFile;
 import net.lingala.zip4j.io.inputstream.ZipInputStream;
@@ -109,7 +110,7 @@ class ZipArchiveFormat extends AbstractArchiveFormat {
     @Nullable private static CompressionLevel outputEntryCompressionLevel;
     @Nullable private static char[]           inputPasswordChars;
     @Nullable private static char[]           outputPasswordChars;
-    @Nullable private static boolean          outputEntryEncrypt;
+    private static           boolean          outputEntryEncrypt;
     @Nullable private static EncryptionMethod outputEntryEncryptionMethod;
 
     private ZipArchiveFormat() {}
@@ -154,7 +155,7 @@ class ZipArchiveFormat extends AbstractArchiveFormat {
 
         return new ArchiveInputStream() {
 
-            @Override public ArchiveEntry
+            @Override @NotNullByDefault(false) public ArchiveEntry
             getNextEntry() throws IOException {
 
                 AbstractFileHeader afh = zis.getNextEntry();
@@ -163,7 +164,7 @@ class ZipArchiveFormat extends AbstractArchiveFormat {
                 return ZipArchiveFormat.zipArchiveEntry(afh);
             }
 
-            @Override public int
+            @Override @NotNullByDefault(false) public int
             read(byte[] b, int off, int len) throws IOException { return zis.read(b, off, len); }
 
             @Override
@@ -267,7 +268,7 @@ class ZipArchiveFormat extends AbstractArchiveFormat {
 
         return new ZipArchiveOutputStream() {
 
-            @Override public void
+            @Override @NotNullByDefault(false) public void
             putArchiveEntry(ArchiveEntry entry) throws IOException {
 
                 CompressionLevel compressionLevel = ZipArchiveFormat.outputEntryCompressionLevel;
@@ -328,16 +329,16 @@ class ZipArchiveFormat extends AbstractArchiveFormat {
 
             @Override public void
             finish() throws IOException {
-                ;
+                zos.close();
             }
 
-            @Override public ArchiveEntry
+            @Override @NotNullByDefault(false) public ArchiveEntry
             createArchiveEntry(File inputFile, String entryName) throws IOException {
                 return ZipArchiveFormat.zipArchiveEntry(entryName, inputFile.length(), inputFile.isDirectory(), new Date(inputFile.lastModified()));
             }
 
-            @Override
-            public void write(byte[] b, int off, int len) throws IOException { zos.write(b, off, len); }
+            @Override @NotNullByDefault(false) public void
+            write(byte[] b, int off, int len) throws IOException { zos.write(b, off, len); }
 
             @Override public void
             close() throws IOException {
@@ -354,7 +355,7 @@ class ZipArchiveFormat extends AbstractArchiveFormat {
     writeEntry(
         ArchiveOutputStream                                              archiveOutputStream,
         String                                                           name,
-        @Nullable final Date                                             lastModifiedDate,
+        @Nullable Date                                                   lastModifiedDate,
         ConsumerWhichThrows<? super OutputStream, ? extends IOException> writeContents
     ) throws IOException {
         if (!(archiveOutputStream instanceof ZipArchiveOutputStream)) {
@@ -363,6 +364,9 @@ class ZipArchiveFormat extends AbstractArchiveFormat {
 
         // Entry names ending in "/" designate DIRECTORIES, so strip all trailing slashes.
         while (name.endsWith("/")) name = name.substring(0, name.length() - 1);
+
+        // ZIP format does not support "no last modified time", so we map that to 0 since the epoch.
+        if (lastModifiedDate == null) lastModifiedDate = new Date(0);
 
         ZipArchiveEntry zae = ZipArchiveFormat.zipArchiveEntry(name, -1, false, lastModifiedDate);
         archiveOutputStream.putArchiveEntry(zae);
@@ -381,7 +385,12 @@ class ZipArchiveFormat extends AbstractArchiveFormat {
         // The way to designate a DIRECTORY entry is a trailing slash.
         if (!name.endsWith("/")) name += '/';
 
-        archiveOutputStream.putArchiveEntry(ZipArchiveFormat.zipArchiveEntry(name, -1, true, null));
+        archiveOutputStream.putArchiveEntry(ZipArchiveFormat.zipArchiveEntry(
+            name,      // entryName
+            -1,        // size
+            true,      // isDirectory
+            new Date() // lastModifiedDate
+        ));
         archiveOutputStream.closeArchiveEntry();
     }
 
@@ -486,9 +495,10 @@ class ZipArchiveFormat extends AbstractArchiveFormat {
     private ArchiveOutputStream
     zipArchiveOutputStream(File archiveFile) {
 
-        char[] password = ZipArchiveFormat.toCharArray(System.getProperty(ZipArchiveFormat.SYSTEM_PROPERTY_OUTPUT_FILE_PASSWORD));
+        char[] opcs = ZipArchiveFormat.outputPasswordChars;
+        if (opcs == null) opcs = ZipArchiveFormat.toCharArray(System.getProperty(ZipArchiveFormat.SYSTEM_PROPERTY_OUTPUT_FILE_PASSWORD));
 
-        return this.zipArchiveOutputStream(archiveFile, password);
+        return this.zipArchiveOutputStream(archiveFile, opcs);
     }
 
     /**
@@ -505,7 +515,7 @@ class ZipArchiveFormat extends AbstractArchiveFormat {
             @Nullable ZipParameters         zipParameters;
             @Nullable ByteArrayOutputStream baos;
 
-            @Override public void
+            @Override @NotNullByDefault(false) public void
             putArchiveEntry(ArchiveEntry entry) throws IOException {
 
                 CompressionLevel compressionLevel = ZipArchiveFormat.outputEntryCompressionLevel;
@@ -561,9 +571,11 @@ class ZipArchiveFormat extends AbstractArchiveFormat {
             @Override public void
             closeArchiveEntry() throws IOException {
 
-                if (this.zipParameters == null) return;
+                ZipParameters zps = this.zipParameters;
+                if (zps == null) return;
 
-                zipFile.addStream(new ByteArrayInputStream(this.baos.toByteArray()), this.zipParameters);
+                assert this.baos != null;
+                zipFile.addStream(new ByteArrayInputStream(this.baos.toByteArray()), zps);
 
                 this.zipParameters = null;
                 this.baos          = null;
@@ -574,18 +586,23 @@ class ZipArchiveFormat extends AbstractArchiveFormat {
                 ;
             }
 
-            @Override public ArchiveEntry
+            @Override @NotNullByDefault(false) public ArchiveEntry
             createArchiveEntry(File inputFile, String entryName) throws IOException {
                 return new ZipArchiveEntry() {
                     @Override public String  getName()             { return entryName;                          }
                     @Override public long    getSize()             { return inputFile.length();                 }
                     @Override public boolean isDirectory()         { return inputFile.isDirectory();            }
                     @Override public Date    getLastModifiedDate() { return new Date(inputFile.lastModified()); }
+                    @Override public String  toString()            { return entryName;                          }
+
                 };
             }
 
-            @Override public void
-            write(byte[] b, int off, int len) throws IOException { this.baos.write(b, off, len); }
+            @Override @NotNullByDefault(false) public void
+            write(byte[] b, int off, int len) throws IOException {
+                assert this.baos != null;
+                this.baos.write(b, off, len);
+            }
 
             @Override public void
             close() throws IOException {
@@ -609,17 +626,24 @@ class ZipArchiveFormat extends AbstractArchiveFormat {
             afh.isDirectory(),                       // isDirectory
             new Date(afh.getLastModifiedTimeEpoch()) // lastModifiedTime
         );
-        result.method = afh.getCompressionMethod().name();
+
+        // "java.util.zip.ZipEntry" calls them "STORED" and "DEFLATED", but "net.lingala.zip4j.model.enums.CompressionMethod"
+        // calls them "STORE" and "DEFLATE" (without the trailing "D").
+        result.method = afh.getCompressionMethod().name() + "D";
         return result;
     }
 
     private static ZipArchiveEntry
     zipArchiveEntry(String entryName, long size, boolean isDirectory, Date lastModifiedDate) {
+        assert entryName        != null;
+        assert lastModifiedDate != null;
+
         return new ZipArchiveEntry() {
             @Override public String  getName()             { return entryName;        }
             @Override public long    getSize()             { return size;             }
             @Override public boolean isDirectory()         { return isDirectory;      }
             @Override public Date    getLastModifiedDate() { return lastModifiedDate; }
+            @Override public String  toString()            { return entryName;        }
         };
     }
 
@@ -631,7 +655,7 @@ class ZipArchiveFormat extends AbstractArchiveFormat {
 
     private static abstract
     class ZipArchiveEntry implements ArchiveEntry {
-        String method;
+        @Nullable String method;
     }
 
     @Override public String
