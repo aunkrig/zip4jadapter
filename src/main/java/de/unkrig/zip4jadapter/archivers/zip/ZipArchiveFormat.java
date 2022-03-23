@@ -46,6 +46,8 @@ import org.apache.commons.compress.compressors.FileNameUtil;
 
 import de.unkrig.commons.file.org.apache.commons.compress.archivers.AbstractArchiveFormat;
 import de.unkrig.commons.file.org.apache.commons.compress.archivers.ArchiveFormat;
+import de.unkrig.commons.file.org.apache.commons.compress.archivers.ArchiveOutputStream2;
+import de.unkrig.commons.io.OutputStreams;
 import de.unkrig.commons.file.org.apache.commons.compress.archivers.ArchiveFormatFactory;
 import de.unkrig.commons.lang.AssertionUtil;
 import de.unkrig.commons.lang.protocol.ConsumerWhichThrows;
@@ -264,7 +266,9 @@ class ZipArchiveFormat extends AbstractArchiveFormat {
     private static ZipArchiveOutputStream
     zipArchiveOutputStream(OutputStream os, @Nullable char[] password) throws IOException {
 
-        final ZipOutputStream zos = new ZipOutputStream(os, password);
+        // Because the lingala ZipOutputStream has no "finish()" method (only "close()"), we must make the underlying
+        // output stream unclosable.
+        final ZipOutputStream zos = new ZipOutputStream(OutputStreams.unclosable(os), password);
 
         return new ZipArchiveOutputStream() {
 
@@ -343,8 +347,12 @@ class ZipArchiveFormat extends AbstractArchiveFormat {
             @Override public void
             close() throws IOException {
                 zos.close();
+                os.close();
                 super.close();
             }
+
+            @Override public ArchiveFormat
+            getArchiveFormat() { return ZipArchiveFormat.get(); }
         };
     }
 
@@ -609,6 +617,9 @@ class ZipArchiveFormat extends AbstractArchiveFormat {
                 zipFile.close();
                 super.close();
             }
+
+            @Override public ArchiveFormat
+            getArchiveFormat() { return ZipArchiveFormat.get(); }
         };
     }
 
@@ -648,7 +659,7 @@ class ZipArchiveFormat extends AbstractArchiveFormat {
     }
 
     private static abstract
-    class ZipArchiveOutputStream extends ArchiveOutputStream {}
+    class ZipArchiveOutputStream extends ArchiveOutputStream2 {}
 
     private static abstract
     class ZipArchiveInputStream extends ArchiveInputStream {}
