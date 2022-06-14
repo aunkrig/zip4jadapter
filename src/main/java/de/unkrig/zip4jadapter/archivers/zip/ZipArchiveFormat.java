@@ -163,6 +163,16 @@ class ZipArchiveFormat extends AbstractArchiveFormat {
                 AbstractFileHeader afh = zis.getNextEntry();
                 if (afh == null) return null;
 
+
+
+
+                // Workaround for a very unpleasant bug in ZIP4J 2.9.1 and 2.10.0, see
+                // https://github.com/srikanth-lingala/zip4j/issues/438:
+                if (afh.isDirectory()) zis.read(new byte[1]);
+
+
+
+
                 return ZipArchiveFormat.zipArchiveEntry(afh);
             }
 
