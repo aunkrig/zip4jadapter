@@ -21,8 +21,16 @@
   	<dependency>
   		<groupId>net.lingala.zip4j</groupId>
   		<artifactId>zip4j</artifactId>
-  		<version>2.9.1</version>
-<!--  		<version>2.10.0</version>--> <!-- Appears to be quite buggy than 2.9.1 (?) -->
+<!--  		<version>2.9.1</version>-->
+<!--		<version>2.10.0</version>-->
+		<!--
+			Srikanth Lingala fixed one very nasty bug for me, see https://github.com/srikanth-lingala/zip4j/issues/438.
+			Notice that the version number "2.10.0.1-SNAPSHOT" was assigned by *me*, because Srikanth left it at 2.10.0
+			after the 2.10.0 release.
+			Until the next release of zip4j, which supposedly contains the fix, you must build it yourself from
+			https://github.com/srikanth-lingala/zip4j.git (trunk)   2022-06-15 AU
+		-->
+		<version>2.10.0.1-SNAPSHOT</version>
   	</dependency>
   </dependencies>
 </project>
