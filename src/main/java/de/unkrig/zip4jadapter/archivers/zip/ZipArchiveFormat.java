@@ -54,6 +54,7 @@ import de.unkrig.commons.lang.protocol.ConsumerWhichThrows;
 import de.unkrig.commons.nullanalysis.NotNullByDefault;
 import de.unkrig.commons.nullanalysis.Nullable;
 import net.lingala.zip4j.ZipFile;
+import net.lingala.zip4j.exception.ZipException;
 import net.lingala.zip4j.io.inputstream.ZipInputStream;
 import net.lingala.zip4j.io.outputstream.ZipOutputStream;
 import net.lingala.zip4j.model.AbstractFileHeader;
@@ -150,17 +151,24 @@ class ZipArchiveFormat extends AbstractArchiveFormat {
     public ArchiveInputStream
     archiveInputStream(InputStream is, @Nullable char[] password) {
 
-        final ZipInputStream zis = new ZipInputStream(
-            is,
-            password
-        );
+        final ZipInputStream zis = new ZipInputStream(is, password);
 
         return new ArchiveInputStream() {
 
             @Override @NotNullByDefault(false) public ArchiveEntry
             getNextEntry() throws IOException {
 
-                AbstractFileHeader afh = zis.getNextEntry();
+                AbstractFileHeader afh;
+                try {
+                    afh = zis.getNextEntry();
+                } catch (ZipException ze) {
+
+                    // Fix up zip4j's misleading exception message for "missing password".
+                    if (ze.getMessage().toLowerCase().contains("wrong password") && password == null) {
+                        throw new ZipException("Password required", ze);
+                    }
+                    throw ze;
+                }
                 if (afh == null) return null;
 
                 return ZipArchiveFormat.zipArchiveEntry(afh);
@@ -184,7 +192,10 @@ class ZipArchiveFormat extends AbstractArchiveFormat {
     @Override public ArchiveInputStream
     open(File archiveFile) throws IOException {
 
-        char[] password = ZipArchiveFormat.toCharArray(System.getProperty(ZipArchiveFormat.SYSTEM_PROPERTY_INPUT_FILE_PASSWORD));
+        char[] password = ZipArchiveFormat.inputPasswordChars;
+        if (password == null) {
+            password = ZipArchiveFormat.toCharArray(System.getProperty(ZipArchiveFormat.SYSTEM_PROPERTY_INPUT_FILE_PASSWORD));
+        }
 
         return this.open(archiveFile, password);
     }
@@ -227,7 +238,17 @@ class ZipArchiveFormat extends AbstractArchiveFormat {
                 }
 
                 FileHeader fh = this.fileHeadersIterator.next();
-                this.stream = this.zipFile.getInputStream(fh);
+                try {
+                    this.stream = this.zipFile.getInputStream(fh);
+                } catch (ZipException ze) {
+
+                    // Fix up zip4j's misleading exception message for "missing password".
+                    if (ze.getMessage().toLowerCase().contains("wrong password") && password == null) {
+                        throw new ZipException("Password required", ze);
+                    }
+                    throw ze;
+                }
+
                 return ZipArchiveFormat.zipArchiveEntry(fh);
             }
 
