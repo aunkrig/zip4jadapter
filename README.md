@@ -1,5 +1,11 @@
+> [!IMPORTANT]
+> As of 2025, I have discontinued my software development activities and marked
+> all my repositories as archived and read-only. A big thank you goes to all the
+> contributors, who made the work a lot of fun!
 
-# An alternative implementation of the "zip" archive format, based on the ZIP4J library.
+# zip4jadapter
+
+An alternative implementation of the "zip" archive format, based on the ZIP4J library.
 
 This implementation supports encryption, which is controlled by a set of system properties:
 
